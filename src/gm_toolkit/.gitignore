@@ -1,0 +1,8 @@
+*.class
+*.jar
+.project
+.classpath
+/bin/
+*temp*
+result/molecule
+properties/properties_molecules.prop
