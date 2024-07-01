@@ -569,12 +569,8 @@ class OurNNTrainer(object):
                 target = new_data["nor_ged"].cpu()
                 ground_truth[i, start_idx:start_idx + self.args.batch_size] = target
                 start_time = time.process_time()
-                if self.args.beam == True:
-                    pred_ged, simmat1, simmat2  = self.init_Astar_sim_mat(new_data) 
-                    astar_prediction, search_space = self.do_astar_beam(simmat1.detach().cpu(), simmat2.detach().cpu(), new_data)
-                else:
-                    pred_ged, simmat1, simmat2  = self.model(new_data)
-                    astar_prediction, search_space = self.do_astar(simmat1.detach().cpu(), simmat2.detach().cpu(), new_data)
+                pred_ged, simmat1, simmat2  = self.model(new_data)
+                astar_prediction, search_space = self.do_astar(simmat1.detach().cpu(), simmat2.detach().cpu(), new_data)
 
 
                 all_time = all_time + time.process_time() - start_time
@@ -659,33 +655,7 @@ class OurNNTrainer(object):
             ged_prediction.append(pred)
             search_space.append(int(astar_out[1]))
         return ged_prediction, search_space
-
-    def do_astar_beam(self, sim_mat, sim_mat2, new_data):
-        if len(sim_mat.shape) == 2:
-            sim_mat = sim_mat.unsqueeze(0)
-        if len(sim_mat2.shape) == 2:
-            sim_mat2 = sim_mat2.unsqueeze(0)
-        batch_num = sim_mat.shape[0]
-        ged_prediction, search_space = [], []
-        for b in range(batch_num):
-            g1_id = new_data['g1'][b]['i'].item()
-            g2_id = new_data['g2'][b]['i'].item()
-            n1 = new_data['g1'][b].num_nodes
-            n2 = new_data['g2'][b].num_nodes
-            e1 = new_data['g1'][b].num_edges
-            e2 = new_data['g2'][b].num_edges 
-            beam_size = get_beam_size(n1, n2, e1/2, e2/2, self.args.dataset) 
-            topk = min(self.args.topk, n1, n2) - 1 
-            if topk <= 0: topk = 1
-            matching_nodes, matching_order = self.find_topk_hun(sim_mat[b, :n1, :n2].detach(), sim_mat2[b, :n1, :n2].detach(),  topk, n1, n2)
-            matching_order[0], matching_order[1] = 0, 0
-            astar_out = self.app_astar.ged(CT(self.nx_graphs[g1_id]), CT(self.nx_graphs[g2_id]), int1ArrayToPointer(matching_order),
-                                           int1ArrayToPointer(matching_order),int2ArrayToPointer(matching_nodes), CT(2 * topk), CT(beam_size))
-            astar_out = astar_out.decode('ascii').split()
-            pred = normalize_ged(n1, n2, int(astar_out[0]))
-            ged_prediction.append(pred)
-            search_space.append(int(astar_out[1]))
-        return ged_prediction, search_space
+ 
 
     def find_topk_hun(self, sim_matrix, sim_matrix2, topk, n1 = None, n2 = None):
         if n1 is None and n2 is None:
